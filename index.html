@@ -9,23 +9,34 @@
         #viewport { width: 100vw; height: 100vh; }
         #controls {
             position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.9); padding: 15px; border-radius: 12px;
-            display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            z-index: 10;
+            background: rgba(255, 255, 255, 0.9); padding: 10px 15px; border-radius: 12px;
+            display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            z-index: 10; flex-wrap: wrap; justify-content: center; width: max-content;
         }
-        button { padding: 8px 12px; border: none; border-radius: 6px; background: #007BFF; color: white; font-weight: bold; cursor: pointer; }
-        button:active { background: #0056b3; }
-        label { font-size: 14px; font-weight: bold; color: #333; }
+        .btn { padding: 8px 12px; border: none; border-radius: 6px; background: #007BFF; color: white; font-weight: bold; cursor: pointer; }
+        .btn:active { background: #0056b3; }
+        
+        /* 속도 조절 버튼 전용 스타일 */
+        .speed-btn { background: #6c757d; } 
+        .speed-btn:active { background: #5a6268; }
+        .speed-btn.active { background: #28a745; } /* 선택된 속도는 초록색으로 표시 */
+        
+        /* 버튼 사이 구분선 */
+        .divider { width: 2px; height: 24px; background: #ccc; margin: 0 4px; }
     </style>
     <script src="https://unpkg.com/ngl@2.3.1/dist/ngl.js"></script>
 </head>
 <body>
     <div id="viewport"></div>
     <div id="controls">
-        <button id="playBtn">▶ 재생</button>
-        <button id="pauseBtn">⏸ 정지</button>
-        <label for="speedSlider">속도:</label>
-        <input type="range" id="speedSlider" min="10" max="150" value="50" dir="rtl">
+        <button class="btn" id="playBtn">▶ 재생</button>
+        <button class="btn" id="pauseBtn">⏸ 정지</button>
+        
+        <div class="divider"></div>
+        
+        <button class="btn speed-btn" id="speed05">x0.5</button>
+        <button class="btn speed-btn active" id="speed1">x1.0</button>
+        <button class="btn speed-btn" id="speed2">x2.0</button>
     </div>
 
     <script>
@@ -39,21 +50,45 @@
                 stage.autoView();
 
                 NGL.autoLoad("lys_traj.dcd" + cacheBuster, { ext: "dcd" }).then(function (frames) {
-                    
-                    // 문제의 원인이었던 .then() 삭제 (정상 작동)
                     var trajComp = component.addTrajectory(frames);
+                    
+                    // 기본 속도 설정 (x1.0은 timeout 50ms 기준)
                     var player = new NGL.TrajectoryPlayer(trajComp.trajectory, { step: 1, timeout: 50 });
                         
                     document.getElementById("playBtn").addEventListener("click", function() { player.play(); });
                     document.getElementById("pauseBtn").addEventListener("click", function() { player.pause(); });
-                    document.getElementById("speedSlider").addEventListener("input", function(e) {
-                        player.timeout = parseInt(e.target.value);
+                    
+                    // 속도 조절 버튼 스크립트
+                    var speedBtns = document.querySelectorAll('.speed-btn');
+                    
+                    // 버튼 색상 변경 함수
+                    function setActiveBtn(activeId) {
+                        speedBtns.forEach(function(btn) { btn.classList.remove('active'); });
+                        document.getElementById(activeId).classList.add('active');
+                    }
+
+                    // x0.5 (느리게: 업데이트 간격 100ms)
+                    document.getElementById("speed05").addEventListener("click", function() {
+                        player.timeout = 100;
+                        setActiveBtn("speed05");
+                    });
+                    
+                    // x1.0 (정상 속도: 업데이트 간격 50ms)
+                    document.getElementById("speed1").addEventListener("click", function() {
+                        player.timeout = 50;
+                        setActiveBtn("speed1");
+                    });
+                    
+                    // x2.0 (빠르게: 업데이트 간격 25ms)
+                    document.getElementById("speed2").addEventListener("click", function() {
+                        player.timeout = 25;
+                        setActiveBtn("speed2");
                     });
                         
                     player.play();
                     
                 }).catch(function(err) {
-                    console.error("DCD 다운로드 에러:", err);
+                    console.error("DCD 로드 에러:", err);
                 });
             });
 
