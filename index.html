@@ -9,7 +9,7 @@
         #viewport { width: 100vw; height: 100vh; }
         #controls {
             position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.9); padding: 12px; border-radius: 15px;
+            background: rgba(255, 255, 255, 0.92); padding: 12px; border-radius: 15px;
             display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
             z-index: 10; max-width: 95vw; width: max-content;
         }
@@ -49,27 +49,27 @@
 
             stage.loadFile("lys_mobile.pdb" + cacheBuster, { ext: "pdb" }).then(function (component) {
                 
-                // 스타일 고정 설정 (LIN: 진한 노란색 뼈대, LYS: 기본색)
-                // LIN은 Small Molecule이므로 Licorice로 뼈대를 구현함
+                // 1. LIN (리놀레산): 채도 낮은 진한 노란색의 뼈대 강조
                 component.addRepresentation("licorice", { 
                     sele: "LIN", 
-                    color: "#C5B358", // 채도가 낮은 진한 노란색 (기름색)
-                    radius: 0.25      // 뼈대 느낌을 주기 위한 두께 조절
+                    color: "#C5B358", 
+                    radius: 0.25      
                 });
 
+                // 2. LYS (라이신): 원자별 색상(CPK) 모드 + Ball 크기 확장
                 component.addRepresentation("ball+stick", { 
                     sele: "LYS", 
-                    color: "skyblue"  // 아미노산(LYS)의 중요성을 위해 선명한 색 유지
+                    colorScheme: "element", // 원소별 색상 (탄소=회색, 질소=파란색 등)
+                    aspectRatio: 3.5,       // 스틱 대비 볼의 크기를 대폭 키움
+                    radiusSize: 0.15
                 });
 
                 stage.autoView();
 
-                // DCD 궤적 로드
                 NGL.autoLoad("lys_traj.dcd" + cacheBuster, { ext: "dcd" }).then(function (frames) {
                     var trajComp = component.addTrajectory(frames);
                     var player = new NGL.TrajectoryPlayer(trajComp.trajectory, { step: 1, timeout: 50 });
 
-                    // 버튼 기능 연결
                     document.getElementById("playBtn").addEventListener("click", function() { player.play(); });
                     document.getElementById("pauseBtn").addEventListener("click", function() { player.pause(); });
                     document.getElementById("nextBtn").addEventListener("click", function() { 
@@ -83,7 +83,6 @@
                         trajComp.setFrame(prev); 
                     });
 
-                    // 속도 조절 기능 (고정 방식)
                     var speedBtns = document.querySelectorAll('.speed-btn');
                     function setActiveBtn(id) { 
                         speedBtns.forEach(b => b.classList.remove('active')); 
