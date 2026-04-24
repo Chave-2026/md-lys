@@ -3,42 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MD Trajectory Viewer - Final</title>
+    <title>MD Trajectory Viewer - Final UI</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background-color: #111; font-family: sans-serif; }
         #viewport { width: 100vw; height: 100vh; }
+        
+        /* 컨트롤 바: 한 줄로 통합 및 스타일 개선 */
         #controls {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.92); padding: 12px; border-radius: 15px;
-            display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-            z-index: 10; max-width: 95vw; width: max-content;
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95); padding: 10px 20px; border-radius: 50px;
+            display: flex; flex-direction: row; align-items: center; gap: 15px;
+            box-shadow: 0 8px 15px rgba(0,0,0,0.6); z-index: 10;
         }
-        .row { display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .btn { padding: 8px 14px; border: none; border-radius: 6px; background: #007BFF; color: white; font-weight: bold; cursor: pointer; font-size: 13px; white-space: nowrap; }
-        .btn:active { background: #0056b3; }
-        .speed-btn { background: #6c757d; } 
-        .speed-btn.active { background: #28a745; } 
-        .divider { width: 100%; height: 1px; background: #ddd; margin: 2px 0; }
+        
+        /* 아이콘 버튼 스타일 (이미지처럼 보이게 설정) */
+        .icon-btn {
+            background: none; border: none; cursor: pointer; padding: 5px;
+            display: flex; align-items: center; justify-content: center;
+            transition: transform 0.2s; color: #333;
+        }
+        .icon-btn:active { transform: scale(0.9); }
+        
+        /* 재생/일시정지 큰 아이콘 */
+        .main-icon { font-size: 32px; }
+        /* 이전/다음 중간 아이콘 */
+        .sub-icon { font-size: 24px; color: #555; }
+        
+        /* 배속 버튼 스타일 */
+        .speed-group { display: flex; gap: 5px; margin-left: 10px; }
+        .speed-btn {
+            padding: 5px 10px; border: 1px solid #ddd; border-radius: 20px;
+            background: white; color: #666; font-size: 12px; font-weight: bold; cursor: pointer;
+        }
+        .speed-btn.active {
+            background: #007BFF; color: white; border-color: #007BFF;
+        }
+        
+        .vertical-divider { width: 1px; height: 25px; background: #ddd; margin: 0 5px; }
     </style>
     <script src="https://unpkg.com/ngl@2.3.1/dist/ngl.js"></script>
 </head>
 <body>
     <div id="viewport"></div>
     <div id="controls">
-        <div class="row">
-            <button class="btn" id="prevBtn">⏪ 이전</button>
-            <button class="btn" id="playBtn">▶ 재생</button>
-            <button class="btn" id="pauseBtn">⏸ 정지</button>
-            <button class="btn" id="nextBtn">다음 ⏩</button>
-        </div>
-
-        <div class="divider"></div>
-
-        <div class="row">
-            <button class="btn speed-btn" id="speed025">x0.25</button>
-            <button class="btn speed-btn" id="speed05">x0.5</button>
-            <button class="btn speed-btn active" id="speed1">x1.0</button>
-            <button class="btn speed-btn" id="speed2">x2.0</button>
+        <button class="icon-btn sub-icon" id="prevBtn" title="이전">⏪</button>
+        <button class="icon-btn main-icon" id="playBtn" title="재생">▶</button>
+        <button class="icon-btn main-icon" id="pauseBtn" title="정지">⏸</button>
+        <button class="icon-btn sub-icon" id="nextBtn" title="다음">⏩</button>
+        
+        <div class="vertical-divider"></div>
+        
+        <div class="speed-group">
+            <button class="speed-btn" id="speed025">0.25x</button>
+            <button class="speed-btn" id="speed05">0.5x</button>
+            <button class="speed-btn active" id="speed1">1.0x</button>
         </div>
     </div>
 
@@ -49,18 +67,18 @@
 
             stage.loadFile("lys_mobile.pdb" + cacheBuster, { ext: "pdb" }).then(function (component) {
                 
-                // 1. LIN (리놀레산): 채도 낮은 진한 노란색의 뼈대 강조
+                // LIN: 진한 노란색(기름색) 골격 강조
                 component.addRepresentation("licorice", { 
                     sele: "LIN", 
                     color: "#C5B358", 
                     radius: 0.25      
                 });
 
-                // 2. LYS (라이신): 원자별 색상(CPK) 모드 + Ball 크기 확장
+                // LYS: 원소별 색상 + 큰 볼 스타일
                 component.addRepresentation("ball+stick", { 
                     sele: "LYS", 
-                    colorScheme: "element", // 원소별 색상 (탄소=회색, 질소=파란색 등)
-                    aspectRatio: 3.5,       // 스틱 대비 볼의 크기를 대폭 키움
+                    colorScheme: "element",
+                    aspectRatio: 3.5,
                     radiusSize: 0.15
                 });
 
@@ -70,6 +88,7 @@
                     var trajComp = component.addTrajectory(frames);
                     var player = new NGL.TrajectoryPlayer(trajComp.trajectory, { step: 1, timeout: 50 });
 
+                    // 버튼 이벤트 연결
                     document.getElementById("playBtn").addEventListener("click", function() { player.play(); });
                     document.getElementById("pauseBtn").addEventListener("click", function() { player.pause(); });
                     document.getElementById("nextBtn").addEventListener("click", function() { 
@@ -83,16 +102,22 @@
                         trajComp.setFrame(prev); 
                     });
 
+                    // 속도 제어
                     var speedBtns = document.querySelectorAll('.speed-btn');
                     function setActiveBtn(id) { 
                         speedBtns.forEach(b => b.classList.remove('active')); 
                         document.getElementById(id).classList.add('active'); 
                     }
 
-                    document.getElementById("speed025").addEventListener("click", function() { player.setParameters({ timeout: 200, step: 1 }); setActiveBtn("speed025"); });
-                    document.getElementById("speed05").addEventListener("click", function() { player.setParameters({ timeout: 100, step: 1 }); setActiveBtn("speed05"); });
-                    document.getElementById("speed1").addEventListener("click", function() { player.setParameters({ timeout: 50, step: 1 }); setActiveBtn("speed1"); });
-                    document.getElementById("speed2").addEventListener("click", function() { player.setParameters({ timeout: 50, step: 2 }); setActiveBtn("speed2"); });
+                    document.getElementById("speed025").addEventListener("click", function() { 
+                        player.setParameters({ timeout: 200, step: 1 }); setActiveBtn("speed025"); 
+                    });
+                    document.getElementById("speed05").addEventListener("click", function() { 
+                        player.setParameters({ timeout: 100, step: 1 }); setActiveBtn("speed05"); 
+                    });
+                    document.getElementById("speed1").addEventListener("click", function() { 
+                        player.setParameters({ timeout: 50, step: 1 }); setActiveBtn("speed1"); 
+                    });
 
                     player.play();
                 });
