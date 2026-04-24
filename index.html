@@ -32,33 +32,27 @@
         document.addEventListener("DOMContentLoaded", function () {
             var stage = new NGL.Stage("viewport", { backgroundColor: "#111" });
 
-            // 1. PDB 뼈대 로드
+            // 1. PDB 뼈대 먼저 로드 (필수)
             stage.loadFile("lys_mobile.pdb").then(function (component) {
                 component.addRepresentation("licorice", { multipleBond: true }); 
                 component.addRepresentation("cartoon", { color: "sstruc" });
                 stage.autoView();
 
-                // 2. 스트리밍 버그 차단: DCD 파일을 메모리에 통째로 먼저 다운로드(Frames)한 뒤 입히기
-                NGL.autoLoad("lys_traj.dcd", { ext: "dcd" }).then(function (frames) {
-                    component.addTrajectory(frames).then(function (trajComp) {
-                        var player = new NGL.TrajectoryPlayer(trajComp.trajectory, { step: 1, timeout: 50 });
-                        
-                        document.getElementById("playBtn").addEventListener("click", function() { player.play(); });
-                        document.getElementById("pauseBtn").addEventListener("click", function() { player.pause(); });
-                        document.getElementById("speedSlider").addEventListener("input", function(e) {
-                            player.timeout = parseInt(e.target.value);
-                        });
-                        
-                        // 데이터 로딩이 끝나면 자동으로 재생 시작!
-                        player.play();
+                // 2. 완성된 뼈대 위에 DCD 궤적 파일 덮어씌우기 (정석 코드)
+                component.addTrajectory("lys_traj.dcd").then(function (trajComp) {
+                    var player = new NGL.TrajectoryPlayer(trajComp.trajectory, { step: 1, timeout: 50 });
+                    
+                    document.getElementById("playBtn").addEventListener("click", function() { player.play(); });
+                    document.getElementById("pauseBtn").addEventListener("click", function() { player.pause(); });
+                    document.getElementById("speedSlider").addEventListener("input", function(e) {
+                        player.timeout = parseInt(e.target.value);
                     });
+                    
+                    // 로딩 완료 시 자동 재생 시작!
+                    player.play();
                 }).catch(function(err) {
-                    console.error("DCD 로드 에러:", err);
-                    alert("DCD 궤적 파일을 읽는 데 실패했습니다.");
+                    console.error("궤적 로드 실패:", err);
                 });
-            }).catch(function(err) {
-                console.error("PDB 로드 에러:", err);
-                alert("PDB 구조 파일을 읽는 데 실패했습니다.");
             });
 
             window.addEventListener("resize", function () { stage.handleResize(); }, false);
