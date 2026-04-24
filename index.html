@@ -3,20 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MD Trajectory Viewer - Final Reverted</title>
+    <title>MD Trajectory Viewer - Multi Amino Acids</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background-color: #111; font-family: sans-serif; }
         #viewport { width: 100vw; height: 100vh; }
         
-        /* 컨트롤 바: 가로 1줄 유지, 깔끔한 캡슐 박스 형태 */
+        /* 상단 탭 (아미노산 선택기) */
+        #top-nav {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95); padding: 8px; border-radius: 30px;
+            display: flex; gap: 5px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); z-index: 10;
+        }
+        .aa-btn {
+            padding: 8px 16px; border: none; border-radius: 20px;
+            background: transparent; color: #555; font-weight: bold; font-size: 14px;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .aa-btn.active {
+            background: #333; color: white;
+        }
+
+        /* 하단 컨트롤 바 (기존 완벽한 UI 유지) */
         #controls {
             position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
             background: rgba(255, 255, 255, 0.95); padding: 12px 20px; border-radius: 40px;
             display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 8px;
             box-shadow: 0 8px 15px rgba(0,0,0,0.6); z-index: 10; max-width: 95vw; width: max-content;
         }
-        
-        /* 텍스트 버튼 스타일 (안정적인 원래 박스 형태로 원복) */
         .btn { 
             padding: 8px 12px; border: none; border-radius: 6px; 
             background: #007BFF; color: white; font-weight: bold; 
@@ -24,7 +37,6 @@
         }
         .btn:active { background: #0056b3; }
         
-        /* 배속 버튼 그룹 및 스타일 */
         .speed-group { display: flex; gap: 6px; }
         .speed-btn { 
             background: #6c757d; color: white; border: none; 
@@ -33,14 +45,29 @@
         }
         .speed-btn:active { background: #5a6268; }
         .speed-btn.active { background: #28a745; } 
-        
-        /* 버튼 사이 세로 구분선 */
         .divider { width: 2px; height: 24px; background: #ccc; margin: 0 4px; }
+
+        /* 로딩 표시기 */
+        #loading {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: white; font-size: 18px; font-weight: bold; font-family: sans-serif;
+            background: rgba(0,0,0,0.7); padding: 15px 25px; border-radius: 10px;
+            display: none; z-index: 20; pointer-events: none;
+        }
     </style>
     <script src="https://unpkg.com/ngl@2.3.1/dist/ngl.js"></script>
 </head>
 <body>
+    <div id="top-nav">
+        <button class="aa-btn active" data-aa="lys">LYS</button>
+        <button class="aa-btn" data-aa="arg">ARG</button>
+        <button class="aa-btn" data-aa="ala">ALA</button>
+        <button class="aa-btn" data-aa="glu">GLU</button>
+    </div>
+
+    <div id="loading">데이터 불러오는 중...</div>
     <div id="viewport"></div>
+
     <div id="controls">
         <button class="btn" id="prevBtn">⏪ 이전</button>
         <button class="btn" id="playBtn">▶ 재생</button>
@@ -59,65 +86,109 @@
     <script>
         document.addEventListener("DOMContentLoaded", function () {
             var stage = new NGL.Stage("viewport", { backgroundColor: "#111" });
-            var cacheBuster = "?v=" + new Date().getTime();
+            
+            // 전역 변수로 플레이어 상태 관리 (아미노산이 바뀌어도 하단 버튼이 작동하도록)
+            window.mdPlayer = null;
+            window.mdTrajComp = null;
 
-            stage.loadFile("lys_mobile.pdb" + cacheBuster, { ext: "pdb" }).then(function (component) {
-                
-                // LIN: 진한 노란색(기름색) 뼈대
-                component.addRepresentation("licorice", { 
-                    sele: "LIN", 
-                    color: "#C5B358", 
-                    radius: 0.25      
+            // 시뮬레이션 불러오기 핵심 함수
+            function loadSimulation(aaName) {
+                var loadingEl = document.getElementById("loading");
+                loadingEl.style.display = "block"; // 로딩창 표시
+
+                // 1. 기존 화면 지우기 및 플레이어 초기화
+                if (window.mdPlayer) { window.mdPlayer.pause(); }
+                stage.removeAllComponents();
+
+                // 2. 파일 이름 규칙 조합 (캐시 방지 코드 포함)
+                var cacheBuster = "?v=" + new Date().getTime();
+                var pdbFile = aaName + "_mobile.pdb" + cacheBuster;
+                var dcdFile = aaName + "_traj.dcd" + cacheBuster;
+                var aaSelection = aaName.toUpperCase(); // "lys" -> "LYS" (PDB 내부 잔기 인식용)
+
+                // 3. PDB 뼈대 로드
+                stage.loadFile(pdbFile, { ext: "pdb" }).then(function (component) {
+                    // LIN: 진한 노란색(기름색) 뼈대
+                    component.addRepresentation("licorice", { sele: "LIN", color: "#C5B358", radius: 0.25 });
+                    // 현재 선택된 아미노산(LYS, ARG, ALA, GLU): 원소별 색상 + 큰 볼
+                    component.addRepresentation("ball+stick", { sele: aaSelection, colorScheme: "element", aspectRatio: 3.5, radiusSize: 0.15 });
+                    stage.autoView();
+
+                    // 4. DCD 궤적 로드
+                    NGL.autoLoad(dcdFile, { ext: "dcd" }).then(function (frames) {
+                        window.mdTrajComp = component.addTrajectory(frames);
+                        window.mdPlayer = new NGL.TrajectoryPlayer(window.mdTrajComp.trajectory, { step: 1, timeout: 50 });
+                        
+                        // 하단 속도 UI 초기화 (1.0x 기준)
+                        document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+                        document.getElementById("speed1").classList.add('active');
+
+                        window.mdPlayer.play();
+                        loadingEl.style.display = "none"; // 로딩창 숨기기
+                        
+                    }).catch(function(err) {
+                        loadingEl.style.display = "none";
+                        console.error(aaSelection + " DCD 에러:", err);
+                    });
+                }).catch(function(err) {
+                    loadingEl.style.display = "none";
+                    console.error(aaSelection + " PDB 에러:", err);
                 });
+            }
 
-                // LYS: 원소별 색상 + 큰 볼
-                component.addRepresentation("ball+stick", { 
-                    sele: "LYS", 
-                    colorScheme: "element",
-                    aspectRatio: 3.5,
-                    radiusSize: 0.15
-                });
-
-                stage.autoView();
-
-                NGL.autoLoad("lys_traj.dcd" + cacheBuster, { ext: "dcd" }).then(function (frames) {
-                    var trajComp = component.addTrajectory(frames);
-                    var player = new NGL.TrajectoryPlayer(trajComp.trajectory, { step: 1, timeout: 50 });
-
-                    // 버튼 이벤트
-                    document.getElementById("playBtn").addEventListener("click", function() { player.play(); });
-                    document.getElementById("pauseBtn").addEventListener("click", function() { player.pause(); });
-                    document.getElementById("nextBtn").addEventListener("click", function() { 
-                        player.pause(); 
-                        trajComp.setFrame((trajComp.trajectory.currentFrame + 1) % trajComp.trajectory.frameCount); 
-                    });
-                    document.getElementById("prevBtn").addEventListener("click", function() { 
-                        player.pause(); 
-                        var prev = trajComp.trajectory.currentFrame - 1;
-                        if (prev < 0) prev = trajComp.trajectory.frameCount - 1;
-                        trajComp.setFrame(prev); 
-                    });
-
-                    // 속도 제어
-                    var speedBtns = document.querySelectorAll('.speed-btn');
-                    function setActiveBtn(id) { 
-                        speedBtns.forEach(b => b.classList.remove('active')); 
-                        document.getElementById(id).classList.add('active'); 
-                    }
-
-                    document.getElementById("speed025").addEventListener("click", function() { 
-                        player.setParameters({ timeout: 200, step: 1 }); setActiveBtn("speed025"); 
-                    });
-                    document.getElementById("speed05").addEventListener("click", function() { 
-                        player.setParameters({ timeout: 100, step: 1 }); setActiveBtn("speed05"); 
-                    });
-                    document.getElementById("speed1").addEventListener("click", function() { 
-                        player.setParameters({ timeout: 50, step: 1 }); setActiveBtn("speed1"); 
-                    });
-
-                    player.play();
+            // --- 상단 탭 버튼 이벤트 연결 ---
+            var aaBtns = document.querySelectorAll('.aa-btn');
+            aaBtns.forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    // 클릭된 버튼 디자인 활성화
+                    aaBtns.forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // 해당 아미노산 이름("lys", "arg" 등)을 가져와서 로딩 함수 실행
+                    var targetAA = this.getAttribute('data-aa');
+                    loadSimulation(targetAA);
                 });
             });
+
+            // --- 하단 컨트롤러 이벤트 연결 (전역 플레이어 제어) ---
+            document.getElementById("playBtn").addEventListener("click", function() { if(window.mdPlayer) window.mdPlayer.play(); });
+            document.getElementById("pauseBtn").addEventListener("click", function() { if(window.mdPlayer) window.mdPlayer.pause(); });
+            
+            document.getElementById("nextBtn").addEventListener("click", function() { 
+                if(!window.mdTrajComp) return;
+                window.mdPlayer.pause(); 
+                var t = window.mdTrajComp.trajectory;
+                window.mdTrajComp.setFrame((t.currentFrame + 1) % t.frameCount); 
+            });
+            
+            document.getElementById("prevBtn").addEventListener("click", function() { 
+                if(!window.mdTrajComp) return;
+                window.mdPlayer.pause(); 
+                var t = window.mdTrajComp.trajectory;
+                var prev = t.currentFrame - 1;
+                if (prev < 0) prev = t.frameCount - 1;
+                window.mdTrajComp.setFrame(prev); 
+            });
+
+            // 속도 제어
+            var speedBtns = document.querySelectorAll('.speed-btn');
+            function setActiveSpeed(id) { 
+                speedBtns.forEach(b => b.classList.remove('active')); 
+                document.getElementById(id).classList.add('active'); 
+            }
+
+            document.getElementById("speed025").addEventListener("click", function() { 
+                if(window.mdPlayer) window.mdPlayer.setParameters({ timeout: 200, step: 1 }); setActiveSpeed("speed025"); 
+            });
+            document.getElementById("speed05").addEventListener("click", function() { 
+                if(window.mdPlayer) window.mdPlayer.setParameters({ timeout: 100, step: 1 }); setActiveSpeed("speed05"); 
+            });
+            document.getElementById("speed1").addEventListener("click", function() { 
+                if(window.mdPlayer) window.mdPlayer.setParameters({ timeout: 50, step: 1 }); setActiveSpeed("speed1"); 
+            });
+
+            // 페이지 로드 시 기본으로 LYS 실행
+            loadSimulation("lys");
 
             window.addEventListener("resize", function () { stage.handleResize(); }, false);
         });
