@@ -3,53 +3,55 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MD Trajectory Viewer - Final UI</title>
+    <title>MD Trajectory Viewer - Final Refined UI</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background-color: #111; font-family: sans-serif; }
         #viewport { width: 100vw; height: 100vh; }
         
-        /* 컨트롤 바: 한 줄로 통합 및 스타일 개선 */
+        /* 컨트롤 바: 한 줄 통합, 스타일 개선 */
         #controls {
             position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.95); padding: 10px 20px; border-radius: 50px;
-            display: flex; flex-direction: row; align-items: center; gap: 15px;
-            box-shadow: 0 8px 15px rgba(0,0,0,0.6); z-index: 10;
+            background: rgba(255, 255, 255, 0.95); padding: 12px 25px; border-radius: 60px;
+            display: flex; flex-direction: row; align-items: center; gap: 12px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.7); z-index: 10;
         }
         
-        /* 아이콘 버튼 스타일 (이미지처럼 보이게 설정) */
+        /* [핵심 수정] 모든 아이콘 버튼 크기 균일화 */
         .icon-btn {
-            background: none; border: none; cursor: pointer; padding: 5px;
+            background: none; border: none; cursor: pointer; padding: 0;
             display: flex; align-items: center; justify-content: center;
             transition: transform 0.2s; color: #333;
+            width: 48px; height: 48px; /* 모든 아이콘 버튼 크기 고정 */
         }
         .icon-btn:active { transform: scale(0.9); }
         
-        /* 재생/일시정지 큰 아이콘 */
-        .main-icon { font-size: 32px; }
-        /* 이전/다음 중간 아이콘 */
-        .sub-icon { font-size: 24px; color: #555; }
+        /* [핵심 수정] 재생/일시정지 크기를 이전/다음과 동일하게 설정 */
+        .control-icon { font-size: 32px; } /* 아이콘 자체 크기 */
         
-        /* 배속 버튼 스타일 */
-        .speed-group { display: flex; gap: 5px; margin-left: 10px; }
+        /* 배속 버튼 그룹 */
+        .speed-group { display: flex; gap: 6px; margin-left: 10px; }
+        
+        /* [핵심 수정] 배속 버튼 크기 확대 */
         .speed-btn {
-            padding: 5px 10px; border: 1px solid #ddd; border-radius: 20px;
-            background: white; color: #666; font-size: 12px; font-weight: bold; cursor: pointer;
+            padding: 8px 16px; border: 1px solid #ddd; border-radius: 25px;
+            background: white; color: #666; font-size: 14px; font-weight: bold; cursor: pointer;
+            min-width: 60px; /* 최소 너비 확보 */
         }
         .speed-btn.active {
             background: #007BFF; color: white; border-color: #007BFF;
         }
         
-        .vertical-divider { width: 1px; height: 25px; background: #ddd; margin: 0 5px; }
+        .vertical-divider { width: 1px; height: 35px; background: #ddd; margin: 0 5px; }
     </style>
     <script src="https://unpkg.com/ngl@2.3.1/dist/ngl.js"></script>
 </head>
 <body>
     <div id="viewport"></div>
     <div id="controls">
-        <button class="icon-btn sub-icon" id="prevBtn" title="이전">⏪</button>
-        <button class="icon-btn main-icon" id="playBtn" title="재생">▶</button>
-        <button class="icon-btn main-icon" id="pauseBtn" title="정지">⏸</button>
-        <button class="icon-btn sub-icon" id="nextBtn" title="다음">⏩</button>
+        <button class="icon-btn control-icon" id="prevBtn" title="이전 프레임">⏪</button>
+        <button class="icon-btn control-icon" id="playBtn" title="재생">▶</button>
+        <button class="icon-btn control-icon" id="pauseBtn" title="일시정지">⏸</button>
+        <button class="icon-btn control-icon" id="nextBtn" title="다음 프레임">ㅣ▶</button>
         
         <div class="vertical-divider"></div>
         
@@ -67,14 +69,14 @@
 
             stage.loadFile("lys_mobile.pdb" + cacheBuster, { ext: "pdb" }).then(function (component) {
                 
-                // LIN: 진한 노란색(기름색) 골격 강조
+                // LIN: 진한 노란색(기름색) 골격 강조 (고정)
                 component.addRepresentation("licorice", { 
                     sele: "LIN", 
                     color: "#C5B358", 
                     radius: 0.25      
                 });
 
-                // LYS: 원소별 색상 + 큰 볼 스타일
+                // LYS: 원소별 색상 + 큰 볼 스타일 (고정)
                 component.addRepresentation("ball+stick", { 
                     sele: "LYS", 
                     colorScheme: "element",
@@ -91,6 +93,8 @@
                     // 버튼 이벤트 연결
                     document.getElementById("playBtn").addEventListener("click", function() { player.play(); });
                     document.getElementById("pauseBtn").addEventListener("click", function() { player.pause(); });
+                    
+                    // [핵심 수정] 단일 프레임/스텝 이동 기능 (사용자가 원한 ㅣ있는 그거)
                     document.getElementById("nextBtn").addEventListener("click", function() { 
                         player.pause(); 
                         trajComp.setFrame((trajComp.trajectory.currentFrame + 1) % trajComp.trajectory.frameCount); 
