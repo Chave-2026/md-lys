@@ -3,108 +3,116 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MD Trajectory Viewer</title>
+    <title>MD Trajectory Viewer - Custom</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background-color: #111; font-family: sans-serif; }
         #viewport { width: 100vw; height: 100vh; }
         #controls {
             position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.9); padding: 10px 15px; border-radius: 12px;
-            display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            z-index: 10; flex-wrap: wrap; justify-content: center; max-width: 95vw;
+            background: rgba(255, 255, 255, 0.9); padding: 12px; border-radius: 15px;
+            display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            z-index: 10; max-width: 95vw; width: max-content;
         }
-        .btn { padding: 8px 10px; border: none; border-radius: 6px; background: #007BFF; color: white; font-weight: bold; cursor: pointer; font-size: 13px; }
+        .row { display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .btn { padding: 8px 12px; border: none; border-radius: 6px; background: #007BFF; color: white; font-weight: bold; cursor: pointer; font-size: 13px; white-space: nowrap; }
         .btn:active { background: #0056b3; }
         
-        /* 속도 조절 버튼 스타일 */
         .speed-btn { background: #6c757d; } 
-        .speed-btn:active { background: #5a6268; }
         .speed-btn.active { background: #28a745; } 
         
-        /* 구분선 */
-        .divider { width: 2px; height: 20px; background: #ccc; margin: 0 4px; }
+        .style-label { font-size: 12px; font-weight: bold; color: #333; margin-right: 4px; }
+        select { padding: 4px; border-radius: 4px; border: 1px solid #ccc; font-size: 12px; }
+        .divider { width: 100%; height: 1px; background: #ddd; margin: 4px 0; }
     </style>
     <script src="https://unpkg.com/ngl@2.3.1/dist/ngl.js"></script>
 </head>
 <body>
     <div id="viewport"></div>
     <div id="controls">
-        <button class="btn" id="prevBtn">⏪ 이전</button>
-        <button class="btn" id="playBtn">▶ 재생</button>
-        <button class="btn" id="pauseBtn">⏸ 정지</button>
-        <button class="btn" id="nextBtn">다음 ⏩</button>
-        
+        <div class="row">
+            <button class="btn" id="prevBtn">⏪ 이전</button>
+            <button class="btn" id="playBtn">▶ 재생</button>
+            <button class="btn" id="pauseBtn">⏸ 정지</button>
+            <button class="btn" id="nextBtn">다음 ⏩</button>
+        </div>
+
         <div class="divider"></div>
-        
-        <button class="btn speed-btn" id="speed025">x0.25</button>
-        <button class="btn speed-btn" id="speed05">x0.5</button>
-        <button class="btn speed-btn active" id="speed1">x1.0</button>
-        <button class="btn speed-btn" id="speed2">x2.0</button>
+
+        <div class="row">
+            <button class="btn speed-btn" id="speed025">x0.25</button>
+            <button class="btn speed-btn" id="speed05">x0.5</button>
+            <button class="btn speed-btn active" id="speed1">x1.0</button>
+            <button class="btn speed-btn" id="speed2">x2.0</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="row">
+            <span class="style-label">LIN (녹색):</span>
+            <select id="linStyle">
+                <option value="licorice">Licorice</option>
+                <option value="ball+stick">Ball & Stick</option>
+                <option value="spacefill">Spacefill</option>
+            </select>
+            <span class="style-label" style="margin-left:10px;">LYS (청색):</span>
+            <select id="lysStyle">
+                <option value="licorice">Licorice</option>
+                <option value="cartoon">Cartoon</option>
+                <option value="backbone">Backbone</option>
+            </select>
+        </div>
     </div>
 
     <script>
         document.addEventListener("DOMContentLoaded", function () {
             var stage = new NGL.Stage("viewport", { backgroundColor: "#111" });
             var cacheBuster = "?v=" + new Date().getTime();
+            var strucComponent;
 
+            // PDB 로드 및 분자별 초기 색상/스타일 설정
             stage.loadFile("lys_mobile.pdb" + cacheBuster, { ext: "pdb" }).then(function (component) {
-                
-                component.addRepresentation("licorice"); 
-                component.addRepresentation("cartoon", { color: "sstruc" });
+                strucComponent = component;
+
+                // 초기 표현 방식 설정 함수
+                function updateStyles() {
+                    strucComponent.removeAllRepresentations();
+                    
+                    // LIN 분자 설정 (녹색 계열)
+                    var linS = document.getElementById("linStyle").value;
+                    strucComponent.addRepresentation(linS, { sele: "LIN", color: "lime" });
+
+                    // LYS 분자 설정 (청색 계열)
+                    var lysS = document.getElementById("lysStyle").value;
+                    strucComponent.addRepresentation(lysS, { sele: "LYS", color: "skyblue" });
+                }
+
+                updateStyles();
                 stage.autoView();
 
+                // 스타일 변경 이벤트 연결
+                document.getElementById("linStyle").addEventListener("change", updateStyles);
+                document.getElementById("lysStyle").addEventListener("change", updateStyles);
+
+                // DCD 궤적 로드
                 NGL.autoLoad("lys_traj.dcd" + cacheBuster, { ext: "dcd" }).then(function (frames) {
-                    var trajComp = component.addTrajectory(frames);
+                    var trajComp = strucComponent.addTrajectory(frames);
                     var player = new NGL.TrajectoryPlayer(trajComp.trajectory, { step: 1, timeout: 50 });
-                        
-                    // 기본 재생/정지 버튼
+
+                    // 제어 버튼 기능들
                     document.getElementById("playBtn").addEventListener("click", function() { player.play(); });
                     document.getElementById("pauseBtn").addEventListener("click", function() { player.pause(); });
-                    
-                    // --- 추가된 수동 프레임 조절 기능 ---
-                    document.getElementById("nextBtn").addEventListener("click", function() {
-                        player.pause(); // 프레임 넘길 때 자동 정지
-                        var traj = trajComp.trajectory;
-                        var nextFrame = traj.currentFrame + 1;
-                        if (traj.frameCount && nextFrame >= traj.frameCount) nextFrame = 0; // 끝에 도달하면 처음으로
-                        trajComp.setFrame(nextFrame);
-                    });
+                    document.getElementById("nextBtn").addEventListener("click", function() { player.pause(); trajComp.setFrame(trajComp.trajectory.currentFrame + 1); });
+                    document.getElementById("prevBtn").addEventListener("click", function() { player.pause(); trajComp.setFrame(trajComp.trajectory.currentFrame - 1); });
 
-                    document.getElementById("prevBtn").addEventListener("click", function() {
-                        player.pause(); // 프레임 넘길 때 자동 정지
-                        var traj = trajComp.trajectory;
-                        var prevFrame = traj.currentFrame - 1;
-                        if (prevFrame < 0 && traj.frameCount) prevFrame = traj.frameCount - 1; // 처음에 도달하면 끝으로
-                        trajComp.setFrame(prevFrame);
-                    });
-                    
-                    // --- 기존 속도 조절 기능 ---
+                    // 속도 조절 기능
                     var speedBtns = document.querySelectorAll('.speed-btn');
-                    function setActiveBtn(activeId) {
-                        speedBtns.forEach(function(btn) { btn.classList.remove('active'); });
-                        document.getElementById(activeId).classList.add('active');
-                    }
+                    function setActiveBtn(id) { speedBtns.forEach(b => b.classList.remove('active')); document.getElementById(id).classList.add('active'); }
 
-                    document.getElementById("speed025").addEventListener("click", function() {
-                        player.setParameters({ timeout: 200, step: 1 });
-                        setActiveBtn("speed025");
-                    });
+                    document.getElementById("speed025").addEventListener("click", function() { player.setParameters({ timeout: 200, step: 1 }); setActiveBtn("speed025"); });
+                    document.getElementById("speed05").addEventListener("click", function() { player.setParameters({ timeout: 100, step: 1 }); setActiveBtn("speed05"); });
+                    document.getElementById("speed1").addEventListener("click", function() { player.setParameters({ timeout: 50, step: 1 }); setActiveBtn("speed1"); });
+                    document.getElementById("speed2").addEventListener("click", function() { player.setParameters({ timeout: 50, step: 2 }); setActiveBtn("speed2"); });
 
-                    document.getElementById("speed05").addEventListener("click", function() {
-                        player.setParameters({ timeout: 100, step: 1 });
-                        setActiveBtn("speed05");
-                    });
-                    
-                    document.getElementById("speed1").addEventListener("click", function() {
-                        player.setParameters({ timeout: 50, step: 1 });
-                        setActiveBtn("speed1");
-                    });
-                    
-                    document.getElementById("speed2").addEventListener("click", function() {
-                        player.setParameters({ timeout: 50, step: 2 }); 
-                        setActiveBtn("speed2");
-                    });
-                        
                     player.play();
                 });
             });
