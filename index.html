@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MD Trajectory Viewer - Multi Amino Acids</title>
+    <title>MD Trajectory Viewer - Final Mobile Optimized</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background-color: #111; font-family: sans-serif; }
         #viewport { width: 100vw; height: 100vh; }
@@ -23,35 +23,34 @@
             background: #333; color: white;
         }
 
-        /* 하단 컨트롤 바 (기존 완벽한 UI 유지) */
+        /* 하단 컨트롤 바: 2줄 배치로 모바일 최적화 */
         #controls {
-            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.95); padding: 12px 20px; border-radius: 40px;
-            display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 8px;
-            box-shadow: 0 8px 15px rgba(0,0,0,0.6); z-index: 10; max-width: 95vw; width: max-content;
+            position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95); padding: 15px; border-radius: 25px;
+            display: flex; flex-direction: column; align-items: center; gap: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.6); z-index: 10; width: 90vw; max-width: 400px;
         }
+        .row { display: flex; flex-direction: row; gap: 8px; justify-content: center; width: 100%; }
+        
         .btn { 
-            padding: 8px 12px; border: none; border-radius: 6px; 
+            flex: 1; padding: 10px 5px; border: none; border-radius: 8px; 
             background: #007BFF; color: white; font-weight: bold; 
-            cursor: pointer; font-size: 13px; white-space: nowrap; 
+            cursor: pointer; font-size: 13px; white-space: nowrap; text-align: center;
         }
         .btn:active { background: #0056b3; }
         
-        .speed-group { display: flex; gap: 6px; }
+        .speed-group { display: flex; gap: 6px; width: 100%; justify-content: center; }
         .speed-btn { 
-            background: #6c757d; color: white; border: none; 
-            padding: 8px 12px; border-radius: 6px; font-weight: bold; 
-            font-size: 13px; cursor: pointer; white-space: nowrap;
+            flex: 1; background: #6c757d; color: white; border: none; 
+            padding: 8px 5px; border-radius: 8px; font-weight: bold; 
+            font-size: 12px; cursor: pointer; text-align: center;
         }
-        .speed-btn:active { background: #5a6268; }
         .speed-btn.active { background: #28a745; } 
-        .divider { width: 2px; height: 24px; background: #ccc; margin: 0 4px; }
 
-        /* 로딩 표시기 */
         #loading {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            color: white; font-size: 18px; font-weight: bold; font-family: sans-serif;
-            background: rgba(0,0,0,0.7); padding: 15px 25px; border-radius: 10px;
+            color: white; font-size: 16px; font-weight: bold;
+            background: rgba(0,0,0,0.8); padding: 15px 25px; border-radius: 10px;
             display: none; z-index: 20; pointer-events: none;
         }
     </style>
@@ -65,102 +64,81 @@
         <button class="aa-btn" data-aa="glu">GLU</button>
     </div>
 
-    <div id="loading">데이터 불러오는 중...</div>
+    <div id="loading">데이터 로드 중...</div>
     <div id="viewport"></div>
 
     <div id="controls">
-        <button class="btn" id="prevBtn">⏪ 이전</button>
-        <button class="btn" id="playBtn">▶ 재생</button>
-        <button class="btn" id="pauseBtn">⏸ 정지</button>
-        <button class="btn" id="nextBtn">다음 ⏩</button>
-        
-        <div class="divider"></div>
+        <div class="row">
+            <button class="btn" id="prevBtn">⏪ 이전</button>
+            <button class="btn" id="playBtn">▶ 재생</button>
+            <button class="btn" id="pauseBtn">⏸ 정지</button>
+            <button class="btn" id="nextBtn">다음 ⏩</button>
+        </div>
         
         <div class="speed-group">
-            <button class="speed-btn" id="speed025">x0.25</button>
-            <button class="speed-btn" id="speed05">x0.5</button>
-            <button class="speed-btn active" id="speed1">x1.0</button>
+            <button class="speed-btn" id="speed025">0.25x</button>
+            <button class="speed-btn" id="speed05">0.5x</button>
+            <button class="speed-btn active" id="speed1">1.0x</button>
+            <button class="speed-btn" id="speed2">2.0x</button>
         </div>
     </div>
 
     <script>
         document.addEventListener("DOMContentLoaded", function () {
             var stage = new NGL.Stage("viewport", { backgroundColor: "#111" });
-            
-            // 전역 변수로 플레이어 상태 관리 (아미노산이 바뀌어도 하단 버튼이 작동하도록)
             window.mdPlayer = null;
             window.mdTrajComp = null;
 
-            // 시뮬레이션 불러오기 핵심 함수
             function loadSimulation(aaName) {
                 var loadingEl = document.getElementById("loading");
-                loadingEl.style.display = "block"; // 로딩창 표시
-
-                // 1. 기존 화면 지우기 및 플레이어 초기화
+                loadingEl.style.display = "block";
                 if (window.mdPlayer) { window.mdPlayer.pause(); }
                 stage.removeAllComponents();
 
-                // 2. 파일 이름 규칙 조합 (캐시 방지 코드 포함)
                 var cacheBuster = "?v=" + new Date().getTime();
                 var pdbFile = aaName + "_mobile.pdb" + cacheBuster;
                 var dcdFile = aaName + "_traj.dcd" + cacheBuster;
-                var aaSelection = aaName.toUpperCase(); // "lys" -> "LYS" (PDB 내부 잔기 인식용)
+                var aaSelection = aaName.toUpperCase();
 
-                // 3. PDB 뼈대 로드
                 stage.loadFile(pdbFile, { ext: "pdb" }).then(function (component) {
                     // LIN: 진한 노란색(기름색) 뼈대
                     component.addRepresentation("licorice", { sele: "LIN", color: "#C5B358", radius: 0.25 });
-                    // 현재 선택된 아미노산(LYS, ARG, ALA, GLU): 원소별 색상 + 큰 볼
+                    // LYS/ARG/ALA/GLU: 원소별 색상 + 큰 볼
                     component.addRepresentation("ball+stick", { sele: aaSelection, colorScheme: "element", aspectRatio: 3.5, radiusSize: 0.15 });
                     stage.autoView();
 
-                    // 4. DCD 궤적 로드
                     NGL.autoLoad(dcdFile, { ext: "dcd" }).then(function (frames) {
                         window.mdTrajComp = component.addTrajectory(frames);
                         window.mdPlayer = new NGL.TrajectoryPlayer(window.mdTrajComp.trajectory, { step: 1, timeout: 50 });
                         
-                        // 하단 속도 UI 초기화 (1.0x 기준)
                         document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
                         document.getElementById("speed1").classList.add('active');
 
                         window.mdPlayer.play();
-                        loadingEl.style.display = "none"; // 로딩창 숨기기
-                        
-                    }).catch(function(err) {
                         loadingEl.style.display = "none";
-                        console.error(aaSelection + " DCD 에러:", err);
-                    });
-                }).catch(function(err) {
-                    loadingEl.style.display = "none";
-                    console.error(aaSelection + " PDB 에러:", err);
-                });
+                    }).catch(function(err) { loadingEl.style.display = "none"; });
+                }).catch(function(err) { loadingEl.style.display = "none"; });
             }
 
-            // --- 상단 탭 버튼 이벤트 연결 ---
+            // 상단 탭 이벤트
             var aaBtns = document.querySelectorAll('.aa-btn');
             aaBtns.forEach(function(btn) {
                 btn.addEventListener('click', function() {
-                    // 클릭된 버튼 디자인 활성화
                     aaBtns.forEach(b => b.classList.remove('active'));
                     this.classList.add('active');
-                    
-                    // 해당 아미노산 이름("lys", "arg" 등)을 가져와서 로딩 함수 실행
-                    var targetAA = this.getAttribute('data-aa');
-                    loadSimulation(targetAA);
+                    loadSimulation(this.getAttribute('data-aa'));
                 });
             });
 
-            // --- 하단 컨트롤러 이벤트 연결 (전역 플레이어 제어) ---
+            // 하단 제어 이벤트
             document.getElementById("playBtn").addEventListener("click", function() { if(window.mdPlayer) window.mdPlayer.play(); });
             document.getElementById("pauseBtn").addEventListener("click", function() { if(window.mdPlayer) window.mdPlayer.pause(); });
-            
             document.getElementById("nextBtn").addEventListener("click", function() { 
                 if(!window.mdTrajComp) return;
                 window.mdPlayer.pause(); 
                 var t = window.mdTrajComp.trajectory;
                 window.mdTrajComp.setFrame((t.currentFrame + 1) % t.frameCount); 
             });
-            
             document.getElementById("prevBtn").addEventListener("click", function() { 
                 if(!window.mdTrajComp) return;
                 window.mdPlayer.pause(); 
@@ -177,19 +155,12 @@
                 document.getElementById(id).classList.add('active'); 
             }
 
-            document.getElementById("speed025").addEventListener("click", function() { 
-                if(window.mdPlayer) window.mdPlayer.setParameters({ timeout: 200, step: 1 }); setActiveSpeed("speed025"); 
-            });
-            document.getElementById("speed05").addEventListener("click", function() { 
-                if(window.mdPlayer) window.mdPlayer.setParameters({ timeout: 100, step: 1 }); setActiveSpeed("speed05"); 
-            });
-            document.getElementById("speed1").addEventListener("click", function() { 
-                if(window.mdPlayer) window.mdPlayer.setParameters({ timeout: 50, step: 1 }); setActiveSpeed("speed1"); 
-            });
+            document.getElementById("speed025").addEventListener("click", function() { if(window.mdPlayer) window.mdPlayer.setParameters({ timeout: 200, step: 1 }); setActiveSpeed("speed025"); });
+            document.getElementById("speed05").addEventListener("click", function() { if(window.mdPlayer) window.mdPlayer.setParameters({ timeout: 100, step: 1 }); setActiveSpeed("speed05"); });
+            document.getElementById("speed1").addEventListener("click", function() { if(window.mdPlayer) window.mdPlayer.setParameters({ timeout: 50, step: 1 }); setActiveSpeed("speed1"); });
+            document.getElementById("speed2").addEventListener("click", function() { if(window.mdPlayer) window.mdPlayer.setParameters({ timeout: 50, step: 2 }); setActiveSpeed("speed2"); });
 
-            // 페이지 로드 시 기본으로 LYS 실행
             loadSimulation("lys");
-
             window.addEventListener("resize", function () { stage.handleResize(); }, false);
         });
     </script>
