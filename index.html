@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MD Trajectory Viewer</title>
+    <style>
+        body { margin: 0; padding: 0; overflow: hidden; background-color: #111; font-family: sans-serif; }
+        #viewport { width: 100vw; height: 100vh; }
+        #controls {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.9); padding: 15px; border-radius: 12px;
+            display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+        button { padding: 8px 12px; border: none; border-radius: 6px; background: #007BFF; color: white; font-weight: bold; cursor: pointer; }
+        button:active { background: #0056b3; }
+        label { font-size: 14px; font-weight: bold; color: #333; }
+    </style>
+    <script src="https://unpkg.com/ngl@2.0.0-dev.38/dist/ngl.js"></script>
+</head>
+<body>
+    <div id="viewport"></div>
+    <div id="controls">
+        <button id="playBtn">▶ 재생</button>
+        <button id="pauseBtn">⏸ 정지</button>
+        <label for="speedSlider">속도:</label>
+        <input type="range" id="speedSlider" min="10" max="150" value="50" dir="rtl">
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            // 모바일 화면 꽉 차게 뷰포트 생성
+            var stage = new NGL.Stage("viewport", { backgroundColor: "#111" });
+
+            // 1. PDB 구조 파일 먼저 로드
+            stage.loadFile("lys_mobile.pdb").then(function (component) {
+                
+                // 분자 표현 방식 (막대 형태 + 단백질 백본)
+                component.addRepresentation("licorice", { multipleBond: true }); 
+                component.addRepresentation("cartoon", { color: "sstruc" });
+
+                // 2. DCD 궤적 파일 덮어씌우기
+                component.addTrajectory("lys_traj.dcd").then(function (trajComp) {
+                    var player = new NGL.TrajectoryPlayer(trajComp.trajectory, { step: 1, timeout: 50 });
+                    
+                    // 화면 중앙에 분자 자동 맞춤
+                    stage.autoView();
+
+                    // 버튼 동작 연결
+                    document.getElementById("playBtn").addEventListener("click", function() { player.play(); });
+                    document.getElementById("pauseBtn").addEventListener("click", function() { player.pause(); });
+                    
+                    // 슬라이더로 재생 속도 조절 (timeout 값이 작을수록 빠름)
+                    document.getElementById("speedSlider").addEventListener("input", function(e) {
+                        player.timeout = parseInt(e.target.value);
+                    });
+                });
+            });
+
+            // 스마트폰 가로/세로 회전 시 화면 크기 자동 조절
+            window.addEventListener("resize", function () { stage.handleResize(); }, false);
+        });
+    </script>
+</body>
+</html>
