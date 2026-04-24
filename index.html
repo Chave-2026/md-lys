@@ -32,27 +32,40 @@
         document.addEventListener("DOMContentLoaded", function () {
             var stage = new NGL.Stage("viewport", { backgroundColor: "#111" });
 
-            // 1. PDB 뼈대 먼저 로드 (필수)
-            stage.loadFile("lys_mobile.pdb").then(function (component) {
+            // 브라우저 캐시 무시 (항상 최신 파일 강제 다운로드)
+            var cacheBuster = "?v=" + new Date().getTime();
+
+            // 1. PDB 뼈대 로드 (확장자 명시)
+            stage.loadFile("lys_mobile.pdb" + cacheBuster, { ext: "pdb" }).then(function (component) {
                 component.addRepresentation("licorice", { multipleBond: true }); 
                 component.addRepresentation("cartoon", { color: "sstruc" });
                 stage.autoView();
 
-                // 2. 완성된 뼈대 위에 DCD 궤적 파일 덮어씌우기 (정석 코드)
-                component.addTrajectory("lys_traj.dcd").then(function (trajComp) {
-                    var player = new NGL.TrajectoryPlayer(trajComp.trajectory, { step: 1, timeout: 50 });
+                // 2. DCD 파일 통째로 메모리에 로드 (스트리밍 서버 착각 버그 원천 차단)
+                NGL.autoLoad("lys_traj.dcd" + cacheBuster, { ext: "dcd" }).then(function (frames) {
                     
-                    document.getElementById("playBtn").addEventListener("click", function() { player.play(); });
-                    document.getElementById("pauseBtn").addEventListener("click", function() { player.pause(); });
-                    document.getElementById("speedSlider").addEventListener("input", function(e) {
-                        player.timeout = parseInt(e.target.value);
+                    // 3. 다운로드된 궤적 프레임을 PDB 뼈대에 덮어씌우기
+                    component.addTrajectory(frames).then(function (trajComp) {
+                        var player = new NGL.TrajectoryPlayer(trajComp.trajectory, { step: 1, timeout: 50 });
+                        
+                        document.getElementById("playBtn").addEventListener("click", function() { player.play(); });
+                        document.getElementById("pauseBtn").addEventListener("click", function() { player.pause(); });
+                        document.getElementById("speedSlider").addEventListener("input", function(e) {
+                            player.timeout = parseInt(e.target.value);
+                        });
+                        
+                        // 데이터 로딩이 끝나면 자동으로 뷰어 재생 시작
+                        player.play();
+                    }).catch(function(err) {
+                        console.error("궤적 결합 에러:", err);
+                        alert("PDB와 DCD의 원자 수가 맞지 않아 궤적을 결합할 수 없습니다.");
                     });
-                    
-                    // 로딩 완료 시 자동 재생 시작!
-                    player.play();
                 }).catch(function(err) {
-                    console.error("궤적 로드 실패:", err);
+                    console.error("DCD 다운로드 에러:", err);
+                    alert("DCD 궤적 파일을 불러오지 못했습니다.");
                 });
+            }).catch(function(err) {
+                console.error("PDB 로드 에러:", err);
             });
 
             window.addEventListener("resize", function () { stage.handleResize(); }, false);
