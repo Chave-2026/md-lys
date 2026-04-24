@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MD Trajectory Viewer - Custom</title>
+    <title>MD Trajectory Viewer - Final</title>
     <style>
         body { margin: 0; padding: 0; overflow: hidden; background-color: #111; font-family: sans-serif; }
         #viewport { width: 100vw; height: 100vh; }
@@ -13,16 +13,12 @@
             display: flex; flex-direction: column; gap: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
             z-index: 10; max-width: 95vw; width: max-content;
         }
-        .row { display: flex; align-items: center; justify-content: center; gap: 6px; }
-        .btn { padding: 8px 12px; border: none; border-radius: 6px; background: #007BFF; color: white; font-weight: bold; cursor: pointer; font-size: 13px; white-space: nowrap; }
+        .row { display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn { padding: 8px 14px; border: none; border-radius: 6px; background: #007BFF; color: white; font-weight: bold; cursor: pointer; font-size: 13px; white-space: nowrap; }
         .btn:active { background: #0056b3; }
-        
         .speed-btn { background: #6c757d; } 
         .speed-btn.active { background: #28a745; } 
-        
-        .style-label { font-size: 12px; font-weight: bold; color: #333; margin-right: 4px; }
-        select { padding: 4px; border-radius: 4px; border: 1px solid #ccc; font-size: 12px; }
-        .divider { width: 100%; height: 1px; background: #ddd; margin: 4px 0; }
+        .divider { width: 100%; height: 1px; background: #ddd; margin: 2px 0; }
     </style>
     <script src="https://unpkg.com/ngl@2.3.1/dist/ngl.js"></script>
 </head>
@@ -44,69 +40,55 @@
             <button class="btn speed-btn active" id="speed1">x1.0</button>
             <button class="btn speed-btn" id="speed2">x2.0</button>
         </div>
-
-        <div class="divider"></div>
-
-        <div class="row">
-            <span class="style-label">LIN (녹색):</span>
-            <select id="linStyle">
-                <option value="licorice">Licorice</option>
-                <option value="ball+stick">Ball & Stick</option>
-                <option value="spacefill">Spacefill</option>
-            </select>
-            <span class="style-label" style="margin-left:10px;">LYS (청색):</span>
-            <select id="lysStyle">
-                <option value="licorice">Licorice</option>
-                <option value="cartoon">Cartoon</option>
-                <option value="backbone">Backbone</option>
-            </select>
-        </div>
     </div>
 
     <script>
         document.addEventListener("DOMContentLoaded", function () {
             var stage = new NGL.Stage("viewport", { backgroundColor: "#111" });
             var cacheBuster = "?v=" + new Date().getTime();
-            var strucComponent;
 
-            // PDB 로드 및 분자별 초기 색상/스타일 설정
             stage.loadFile("lys_mobile.pdb" + cacheBuster, { ext: "pdb" }).then(function (component) {
-                strucComponent = component;
+                
+                // 스타일 고정 설정 (LIN: 진한 노란색 뼈대, LYS: 기본색)
+                // LIN은 Small Molecule이므로 Licorice로 뼈대를 구현함
+                component.addRepresentation("licorice", { 
+                    sele: "LIN", 
+                    color: "#C5B358", // 채도가 낮은 진한 노란색 (기름색)
+                    radius: 0.25      // 뼈대 느낌을 주기 위한 두께 조절
+                });
 
-                // 초기 표현 방식 설정 함수
-                function updateStyles() {
-                    strucComponent.removeAllRepresentations();
-                    
-                    // LIN 분자 설정 (녹색 계열)
-                    var linS = document.getElementById("linStyle").value;
-                    strucComponent.addRepresentation(linS, { sele: "LIN", color: "lime" });
+                component.addRepresentation("ball+stick", { 
+                    sele: "LYS", 
+                    color: "skyblue"  // 아미노산(LYS)의 중요성을 위해 선명한 색 유지
+                });
 
-                    // LYS 분자 설정 (청색 계열)
-                    var lysS = document.getElementById("lysStyle").value;
-                    strucComponent.addRepresentation(lysS, { sele: "LYS", color: "skyblue" });
-                }
-
-                updateStyles();
                 stage.autoView();
-
-                // 스타일 변경 이벤트 연결
-                document.getElementById("linStyle").addEventListener("change", updateStyles);
-                document.getElementById("lysStyle").addEventListener("change", updateStyles);
 
                 // DCD 궤적 로드
                 NGL.autoLoad("lys_traj.dcd" + cacheBuster, { ext: "dcd" }).then(function (frames) {
-                    var trajComp = strucComponent.addTrajectory(frames);
+                    var trajComp = component.addTrajectory(frames);
                     var player = new NGL.TrajectoryPlayer(trajComp.trajectory, { step: 1, timeout: 50 });
 
-                    // 제어 버튼 기능들
+                    // 버튼 기능 연결
                     document.getElementById("playBtn").addEventListener("click", function() { player.play(); });
                     document.getElementById("pauseBtn").addEventListener("click", function() { player.pause(); });
-                    document.getElementById("nextBtn").addEventListener("click", function() { player.pause(); trajComp.setFrame(trajComp.trajectory.currentFrame + 1); });
-                    document.getElementById("prevBtn").addEventListener("click", function() { player.pause(); trajComp.setFrame(trajComp.trajectory.currentFrame - 1); });
+                    document.getElementById("nextBtn").addEventListener("click", function() { 
+                        player.pause(); 
+                        trajComp.setFrame((trajComp.trajectory.currentFrame + 1) % trajComp.trajectory.frameCount); 
+                    });
+                    document.getElementById("prevBtn").addEventListener("click", function() { 
+                        player.pause(); 
+                        var prev = trajComp.trajectory.currentFrame - 1;
+                        if (prev < 0) prev = trajComp.trajectory.frameCount - 1;
+                        trajComp.setFrame(prev); 
+                    });
 
-                    // 속도 조절 기능
+                    // 속도 조절 기능 (고정 방식)
                     var speedBtns = document.querySelectorAll('.speed-btn');
-                    function setActiveBtn(id) { speedBtns.forEach(b => b.classList.remove('active')); document.getElementById(id).classList.add('active'); }
+                    function setActiveBtn(id) { 
+                        speedBtns.forEach(b => b.classList.remove('active')); 
+                        document.getElementById(id).classList.add('active'); 
+                    }
 
                     document.getElementById("speed025").addEventListener("click", function() { player.setParameters({ timeout: 200, step: 1 }); setActiveBtn("speed025"); });
                     document.getElementById("speed05").addEventListener("click", function() { player.setParameters({ timeout: 100, step: 1 }); setActiveBtn("speed05"); });
