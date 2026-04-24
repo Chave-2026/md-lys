@@ -11,24 +11,28 @@
             position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
             background: rgba(255, 255, 255, 0.9); padding: 10px 15px; border-radius: 12px;
             display: flex; align-items: center; gap: 6px; box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-            z-index: 10; flex-wrap: wrap; justify-content: center; width: max-content;
+            z-index: 10; flex-wrap: wrap; justify-content: center; max-width: 95vw;
         }
         .btn { padding: 8px 10px; border: none; border-radius: 6px; background: #007BFF; color: white; font-weight: bold; cursor: pointer; font-size: 13px; }
         .btn:active { background: #0056b3; }
         
+        /* 속도 조절 버튼 스타일 */
         .speed-btn { background: #6c757d; } 
         .speed-btn:active { background: #5a6268; }
         .speed-btn.active { background: #28a745; } 
         
-        .divider { width: 2px; height: 20px; background: #ccc; margin: 0 2px; }
+        /* 구분선 */
+        .divider { width: 2px; height: 20px; background: #ccc; margin: 0 4px; }
     </style>
     <script src="https://unpkg.com/ngl@2.3.1/dist/ngl.js"></script>
 </head>
 <body>
     <div id="viewport"></div>
     <div id="controls">
+        <button class="btn" id="prevBtn">⏪ 이전</button>
         <button class="btn" id="playBtn">▶ 재생</button>
         <button class="btn" id="pauseBtn">⏸ 정지</button>
+        <button class="btn" id="nextBtn">다음 ⏩</button>
         
         <div class="divider"></div>
         
@@ -45,7 +49,6 @@
 
             stage.loadFile("lys_mobile.pdb" + cacheBuster, { ext: "pdb" }).then(function (component) {
                 
-                // [최적화 핵심] 버벅임을 유발하는 multipleBond: true 삭제
                 component.addRepresentation("licorice"); 
                 component.addRepresentation("cartoon", { color: "sstruc" });
                 stage.autoView();
@@ -54,39 +57,55 @@
                     var trajComp = component.addTrajectory(frames);
                     var player = new NGL.TrajectoryPlayer(trajComp.trajectory, { step: 1, timeout: 50 });
                         
+                    // 기본 재생/정지 버튼
                     document.getElementById("playBtn").addEventListener("click", function() { player.play(); });
                     document.getElementById("pauseBtn").addEventListener("click", function() { player.pause(); });
                     
+                    // --- 추가된 수동 프레임 조절 기능 ---
+                    document.getElementById("nextBtn").addEventListener("click", function() {
+                        player.pause(); // 프레임 넘길 때 자동 정지
+                        var traj = trajComp.trajectory;
+                        var nextFrame = traj.currentFrame + 1;
+                        if (traj.frameCount && nextFrame >= traj.frameCount) nextFrame = 0; // 끝에 도달하면 처음으로
+                        trajComp.setFrame(nextFrame);
+                    });
+
+                    document.getElementById("prevBtn").addEventListener("click", function() {
+                        player.pause(); // 프레임 넘길 때 자동 정지
+                        var traj = trajComp.trajectory;
+                        var prevFrame = traj.currentFrame - 1;
+                        if (prevFrame < 0 && traj.frameCount) prevFrame = traj.frameCount - 1; // 처음에 도달하면 끝으로
+                        trajComp.setFrame(prevFrame);
+                    });
+                    
+                    // --- 기존 속도 조절 기능 ---
                     var speedBtns = document.querySelectorAll('.speed-btn');
                     function setActiveBtn(activeId) {
                         speedBtns.forEach(function(btn) { btn.classList.remove('active'); });
                         document.getElementById(activeId).classList.add('active');
                     }
 
-                    // 속도 조절 전용 내장 함수(setParameters) 사용 및 최적화
                     document.getElementById("speed025").addEventListener("click", function() {
-                        player.setParameters({ timeout: 200, step: 1 }); // 프레임 간격 200ms
+                        player.setParameters({ timeout: 200, step: 1 });
                         setActiveBtn("speed025");
                     });
 
                     document.getElementById("speed05").addEventListener("click", function() {
-                        player.setParameters({ timeout: 100, step: 1 }); // 프레임 간격 100ms
+                        player.setParameters({ timeout: 100, step: 1 });
                         setActiveBtn("speed05");
                     });
                     
                     document.getElementById("speed1").addEventListener("click", function() {
-                        player.setParameters({ timeout: 50, step: 1 }); // 기준 속도
+                        player.setParameters({ timeout: 50, step: 1 });
                         setActiveBtn("speed1");
                     });
                     
                     document.getElementById("speed2").addEventListener("click", function() {
-                        // 2배속은 연산 과부하를 막기 위해 프레임을 한 장씩 건너뜀 (step: 2)
                         player.setParameters({ timeout: 50, step: 2 }); 
                         setActiveBtn("speed2");
                     });
                         
                     player.play();
-                    
                 });
             });
 
