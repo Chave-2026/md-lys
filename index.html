@@ -41,7 +41,7 @@
                 component.addRepresentation("cartoon", { color: "sstruc" });
 
                 // 2. DCD 궤적 파일 덮어씌우기
-                component.addTrajectory("lys_traj.dcd").then(function (trajComp) {
+                component.addTrajectory("./lys_traj.dcd", { ext: "dcd" }).then(function (trajComp) {
                     var player = new NGL.TrajectoryPlayer(trajComp.trajectory, { step: 1, timeout: 50 });
                     
                     // 화면 중앙에 분자 자동 맞춤
