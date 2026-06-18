@@ -23,7 +23,7 @@
             background: #333; color: white;
         }
 
-        /* 프레임 상태창 (화이트톤 알약 디자인 적용) */
+        /* 프레임 상태창 (화이트톤 알약 디자인) */
         #frameCounter {
             position: absolute; 
             top: 75px; 
@@ -42,7 +42,7 @@
             letter-spacing: 0.5px; 
         }
 
-        /* 하단 컨트롤 바: 2줄 배치로 모바일 최적화 */
+        /* 하단 컨트롤 바 */
         #controls {
             position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%);
             background: rgba(255, 255, 255, 0.95); padding: 15px; border-radius: 25px;
@@ -97,10 +97,10 @@
         </div>
         
         <div class="speed-group">
-            <button class="speed-btn" id="speed025">0.25x</button>
             <button class="speed-btn" id="speed05">0.5x</button>
             <button class="speed-btn active" id="speed1">1.0x</button>
             <button class="speed-btn" id="speed2">2.0x</button>
+            <button class="speed-btn" id="speed4">4.0x</button>
         </div>
     </div>
 
@@ -131,7 +131,9 @@
                     NGL.autoLoad(dcdFile, { ext: "dcd" }).then(function (frames) {
                         window.mdTrajComp = component.addTrajectory(frames);
                         var traj = window.mdTrajComp.trajectory;
-                        window.mdPlayer = new NGL.TrajectoryPlayer(traj, { step: 1, timeout: 50 });
+                        
+                        // 기본 재생 속도를 보기 편한 100ms(새로운 1.0x)로 늦춤
+                        window.mdPlayer = new NGL.TrajectoryPlayer(traj, { step: 1, timeout: 100 });
                         
                         // 프레임 변경 시 상태창 업데이트 (텍스트 깔끔하게 수정)
                         traj.signals.frameChanged.add(function (frame) {
@@ -143,6 +145,7 @@
                         // 초기 텍스트 세팅
                         document.getElementById("frameCounter").innerText = "Frame 1 / " + traj.frameCount;
 
+                        // 초기 속도 버튼 UI 세팅
                         document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
                         document.getElementById("speed1").classList.add('active');
 
@@ -180,17 +183,29 @@
                 window.mdTrajComp.setFrame(prev); 
             });
 
-            // 속도 제어
+            // 속도 제어 함수
             var speedBtns = document.querySelectorAll('.speed-btn');
             function setActiveSpeed(id) { 
                 speedBtns.forEach(b => b.classList.remove('active')); 
                 document.getElementById(id).classList.add('active'); 
             }
 
-            document.getElementById("speed025").addEventListener("click", function() { if(window.mdPlayer) window.mdPlayer.setParameters({ timeout: 200, step: 1 }); setActiveSpeed("speed025"); });
-            document.getElementById("speed05").addEventListener("click", function() { if(window.mdPlayer) window.mdPlayer.setParameters({ timeout: 100, step: 1 }); setActiveSpeed("speed05"); });
-            document.getElementById("speed1").addEventListener("click", function() { if(window.mdPlayer) window.mdPlayer.setParameters({ timeout: 50, step: 1 }); setActiveSpeed("speed1"); });
-            document.getElementById("speed2").addEventListener("click", function() { if(window.mdPlayer) window.mdPlayer.setParameters({ timeout: 50, step: 2 }); setActiveSpeed("speed2"); });
+            // 0.5x : 매우 느림 (200ms)
+            document.getElementById("speed05").addEventListener("click", function() { 
+                if(window.mdPlayer) window.mdPlayer.setParameters({ timeout: 200, step: 1 }); setActiveSpeed("speed05"); 
+            });
+            // 1.0x : 기본값, 보기 편안한 속도 (100ms)
+            document.getElementById("speed1").addEventListener("click", function() { 
+                if(window.mdPlayer) window.mdPlayer.setParameters({ timeout: 100, step: 1 }); setActiveSpeed("speed1"); 
+            });
+            // 2.0x : 조금 빠름 (50ms)
+            document.getElementById("speed2").addEventListener("click", function() { 
+                if(window.mdPlayer) window.mdPlayer.setParameters({ timeout: 50, step: 1 }); setActiveSpeed("speed2"); 
+            });
+            // 4.0x : 매우 빠름, 프레임 스킵 (50ms, step 2)
+            document.getElementById("speed4").addEventListener("click", function() { 
+                if(window.mdPlayer) window.mdPlayer.setParameters({ timeout: 50, step: 2 }); setActiveSpeed("speed4"); 
+            });
 
             loadSimulation("lys");
             window.addEventListener("resize", function () { stage.handleResize(); }, false);
